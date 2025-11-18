@@ -21,11 +21,7 @@ run_script() {
     local script_name=$1
     shift
     local script_path="$SCRIPTS_DIR/$script_name"
-    if [ ! -x "$script_path" ]; then
-        echo "Script $script_name non trovato o non eseguibile."
-        exit 1
-    fi
-    "$script_path" "$@"
+    bash "$script_path" "$@"
 }
 
 while true; do
