@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: ./create_branch.sh [feature|bugfix] nome-branch [--dry-run] [--from-main]
+# Usage: ./create_branch.sh [feature|bugfix|release] nome-branch [--dry-run] [--from-main]
 set -euo pipefail
 
 TYPE=$1
@@ -26,8 +26,10 @@ else
     exit 1
 fi
 
-if [ "$FROM_MAIN" = true ]; then
-    BASE="main"
+if [ "$TYPE" == "feature" ] || [ "$TYPE" == "bugfix" ]; then
+    if [ "$FROM_MAIN" = true ]; then
+        BASE="main"
+    fi
 fi
 
 # Controllo locale
