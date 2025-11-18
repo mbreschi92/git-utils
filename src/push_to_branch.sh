@@ -25,6 +25,10 @@ fi
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "Branch corrente: $CURRENT_BRANCH"
 
+if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "develop" || "$CURRENT_BRANCH" == release/* ]] ; then
+    echo "Push non consentito su branch $CURRENT_BRANCH"
+fi
+
 if [ "$DRY_RUN" = true ]; then
     echo "[DRY RUN] Operazioni:"
     echo "git add ${FILES[*]:-*tutti i file*}"
