@@ -25,8 +25,10 @@ fi
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "Branch corrente: $CURRENT_BRANCH"
 
+# controllo push su branch protette
 if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "develop" || "$CURRENT_BRANCH" == release/* ]] ; then
     echo "Push non consentito su branch $CURRENT_BRANCH"
+    exit 1
 fi
 
 if [ "$DRY_RUN" = true ]; then

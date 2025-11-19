@@ -53,3 +53,6 @@ else
 fi
 
 echo "Ora sei su $BRANCH"
+
+# TODO show list of branches
+# TODO check uncommitted changes

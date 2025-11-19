@@ -44,3 +44,6 @@ fi
 
 git push origin main
 echo "Merge completato su main."
+
+# TODO go back to previous branch
+# TODO show command and ask if user wants to execute it
