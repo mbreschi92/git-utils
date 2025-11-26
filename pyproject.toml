@@ -1,0 +1,15 @@
+[project]
+name = "gitflow"
+version = "0.1.0"
+description = "A GitFlow/Trunk management CLI"
+authors = [
+    { name = "Matteo" }
+]
+dependencies = [
+    "typer",
+    "GitPython",
+    "requests"
+]
+
+[project.scripts]
+gitflow = "gitflow.app:app"
