@@ -1,6 +1,6 @@
 # local_git.py
 import git
-from typing import Optional
+from typing import Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -14,13 +14,32 @@ class TrunkSettings:
     name: str
     allow_push: bool
     require_pr: bool
+    deprecated: bool = False
+    default_branch: bool = False
+    sync_with: list[str] = None
 
 
 @dataclass
 class FlowSettings:
     prefix: str
     parent: str
-    target: str
+    target: str | list[str]
+    max_lifetime_days: Optional[int] = None
+    allow_push: bool = True
+    require_pr: bool = False
+
+
+@dataclass
+class BindSettings:
+    name: str
+    parent: str
+    target: str | list[str]
+    mode: str = "merge"  # "merge", "rebase", "aggregate"
+    tag: bool = True
+    conflict_policy: str = (
+        "block"  # "block", "notify", "resolve_ours", "resolve_theirs"
+    )
+    schedule: str = "on_push"  # "daily", "weekly", "on_push"
 
 
 class LocalGit:
@@ -35,6 +54,13 @@ class LocalGit:
 
     def get_remote_name(self) -> str:
         return self.repo.remotes.origin.name
+
+    def get_user_info(self) -> Tuple[str, str]:
+        """Restituisce il nome e l'email dell'utente Git configurato."""
+        with self.repo.config_reader() as config:
+            name = config.get_value("user", "name", "")
+            email = config.get_value("user", "email", "")
+        return name, email
 
     def checkout(self, branch: str, create: bool = False):
         if create:
@@ -52,7 +78,9 @@ class LocalGit:
             return self.repo.git.branch(name, base)
         return self.repo.git.branch(name)
 
-    def push(self, branch: str):
+    def push(self, branch: str = None):
+        if branch is None:
+            branch = self.current_branch()
         return self.repo.git.push(self.get_remote_name(), branch)
 
     def pull(self, branch: Optional[str] = None):
@@ -81,6 +109,13 @@ class LocalGit:
     def commit(self, message: str):
         self.repo.index.commit(message)
         return True
+
+    def rebase(self, source: str, onto: str):
+        self.repo.git.checkout(onto)
+        try:
+            return self.repo.git.rebase(source)
+        except git.exc.GitCommandError:
+            raise MergeConflictError("Rebase conflict detected")
 
     def merge(
         self,

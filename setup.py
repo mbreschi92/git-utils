@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="gitflow",
+    name="gatp",
     version="0.1.0",
     packages=find_packages(),
     include_package_data=True,
@@ -12,7 +12,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "gitflow=gitflow.app:app",
+            "gatp=gatp.app:app",
         ],
     },
 )

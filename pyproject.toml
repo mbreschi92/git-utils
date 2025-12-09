@@ -1,9 +1,9 @@
 [project]
-name = "gitflow"
+name = "gatp"
 version = "0.1.0"
-description = "A GitFlow/Trunk management CLI"
+description = "Adaptive Topological Policies for Git Repositories"
 authors = [
-    { name = "Matteo" }
+    { name = "Matteo Breschi" }
 ]
 dependencies = [
     "typer",
@@ -12,4 +12,4 @@ dependencies = [
 ]
 
 [project.scripts]
-gitflow = "gitflow.app:app"
+gatp = "gatp.app:app"
