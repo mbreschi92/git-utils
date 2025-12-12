@@ -1,23 +1,23 @@
 from typing import Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from .local_git import LocalGit, TrunkSettings, FlowSettings, BindSettings
-from .db_store import DBStore
+from .repository import GitRepository
+from .db import DBStore, Trunk, Flow, Bind
 
 # default objects (usali per init)
 DEFAULT_TRUNKS = {
-    "main": TrunkSettings("main", allow_push=False, require_pr=True),
-    "develop": TrunkSettings("develop", allow_push=True, require_pr=True),
+    "main": Trunk("main", allow_push=False, require_pr=True),
+    "develop": Trunk("develop", allow_push=True, require_pr=True),
 }
 
 DEFAULT_FLOWS = {
-    "feature": FlowSettings("feature/", parent="develop", target="develop"),
-    "hotfix": FlowSettings("hotfix/", parent="main", target="main"),
-    # "release": FlowSettings("release/", parent="develop", target="main"),
+    "feature": Flow("feature/", parent="develop", target="develop"),
+    "hotfix": Flow("hotfix/", parent="main", target="main"),
+    # "release": Flow("release/", parent="develop", target="main"),
 }
 
 DEFAULT_BINDS = {
-    "release": BindSettings(
+    "release": Bind(
         name="release", parent="develop", target="main", mode="aggregate", tag=True
     ),
 }
@@ -25,36 +25,62 @@ DEFAULT_BINDS = {
 
 class TreeManager:
     def __init__(self, repo_path: str = "."):
-        # determine repo root using LocalGit
-        self.lg = LocalGit(repo_path)
-        self.repo_root = self.lg.get_repo_root()
+        # determine repo root using GitRepository
+        self.repo = GitRepository(repo_path)
+        self.repo_root = self.repo.get_repo_root()
         self.store = DBStore(self.repo_root)
 
         if self.store.is_initialized():
             # load from DB
-            self.trunks = {t.name: t for t in self.store.list_trunks()}
-            # flows: map name->FlowSettings
-            self.flows = {name: flow for (name, flow) in self.store.list_flows()}
+            self.trunks = {t.name: t for t in self.store.get_trunks()}
+            # flows: map name->Flow
+            self.flows = {name: flow for (name, flow) in self.store.get_flows()}
             # binds can be added similarly if needed
-            self.binds = {b.name: b for b in self.store.list_binds()}
+            self.binds = {b.name: b for b in self.store.get_binds()}
         else:
             # use defaults until user calls setup/init
             self.trunks = DEFAULT_TRUNKS
             self.flows = DEFAULT_FLOWS
             self.binds = DEFAULT_BINDS
 
-    # -------------------------
-    # detect/trunk helpers
-    # -------------------------
-    def detect_trunk(self, branch: str) -> Optional[TrunkSettings]:
+        # initialize user
+        self.user_exists = self.init_user()
+
+    def init_user(self):
+
+        if self.store.is_initialized() and self.repo.user_name and self.repo.user_email:
+
+            # verify user on db or create default
+            name = self.repo.user_name
+            email = self.repo.user_email
+            users = self.store.get_users()
+
+            # if there are no users, add current as admin
+            if not users:
+                self.store.add_user(name=name, email=email, admin=True)
+                return True
+            else:
+                # verify existing user
+                for u in users:
+                    if u.name == name and u.email == email:
+                        return True
+
+                # if the user is not found, add as non-admin
+                self.store.add_user(name=name, email=email, admin=False)
+                return True
+
+        # if the user does not exist, or it's not initialized, return False
+        return False
+
+    def detect_trunk(self, branch: str) -> Optional[Trunk]:
         # direct match on trunk names
         if branch in self.trunks:
             return self.trunks[branch]
         return None
 
-    def detect_flow(self, branch: str) -> Optional[Tuple[str, FlowSettings]]:
+    def detect_flow(self, branch: str) -> Optional[Tuple[str, Flow]]:
         # if DB is used, prefer DB lookup; otherwise fallback to defaults
-        # self.flows maps name->FlowSettings (if from DB) or default mapping name->FlowSettings
+        # self.flows maps name->Flow (if from DB) or default mapping name->Flow
         for name, cfg in self.flows.items():
             if isinstance(cfg, tuple):
                 # case when list_flows returned raw tuples (defensive)
@@ -118,9 +144,9 @@ class TreeManager:
         assert mode in ("merge", "rebase", "aggregate"), f"Invalid bind mode '{mode}'"
 
         # Ensure branches exist
-        if not self.lg.branch_exists(parent):
+        if not self.repo.branch_exists(parent):
             raise ValueError(f"Parent branch '{parent}' does not exist")
-        if not self.lg.branch_exists(target):
+        if not self.repo.branch_exists(target):
             raise ValueError(f"Target branch '{target}' does not exist")
 
         # get target record
@@ -130,26 +156,26 @@ class TreeManager:
 
             if mode == "merge":
                 # Merge changes from parent to target
-                self.lg.merge(source=parent, target=target)
+                self.repo.merge(source=parent, target=target)
             elif mode == "rebase":
                 # Rebase target onto parent
-                self.lg.rebase(source=parent, onto=target)
+                self.repo.rebase(source=parent, onto=target)
             elif mode == "aggregate":
                 # Aggregate changes from both branches and push in both directions
                 # Merge parent into target
-                self.lg.merge(source=parent, target=target)
+                self.repo.merge(source=parent, target=target)
                 # Merge target back into parent to keep them in sync
-                self.lg.merge(source=target, target=parent)
+                self.repo.merge(source=target, target=parent)
 
-            self.lg.checkout(target)
-            self.lg.push(target)
+            self.repo.checkout(target)
+            self.repo.push(target)
 
             if tag:
                 # Create a tag with current timestamp
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 tag_name = f"{bind.name}-{timestamp}"
-                self.lg.repo.create_tag(tag_name)
-                self.lg.push()
+                self.repo.repo.create_tag(tag_name)
+                self.repo.push()
 
         if target_trunk.require_pr:
             print(
@@ -162,30 +188,30 @@ class TreeManager:
     #     # and with no PRs open
     #     now = datetime.now()
     #     cutoff_date = now - timedelta(days=older_than_days)
-    #     remote = self.lg.get_remote_name()
+    #     remote = self.repo.get_remote_name()
 
     #     for name, fs in self.flows.items():
     #         if isinstance(fs, tuple):
     #             fs = fs[1]
     #         prefix = fs.prefix
-    #         for bname in self.lg.list_branches(remote=True):
+    #         for bname in self.repo.list_branches(remote=True):
     #             # remove remote prefix if present
     #             branch_short = bname[len(f"{remote}/") :]
     #             print(bname)
     #             if branch_short.startswith(prefix):
     #                 # check last commit date
-    #                 commit = self.lg.repo.commit(bname)
+    #                 commit = self.repo.repo.commit(bname)
     #                 commit_date = datetime.fromtimestamp(commit.committed_date)
     #                 if commit_date < cutoff_date:
     #                     # 1 - check if merged into target trunk
     #                     target_trunk = fs.target
-    #                     if not self.lg.branch_exists(target_trunk):
+    #                     if not self.repo.branch_exists(target_trunk):
     #                         continue
-    #                     target_commit = self.lg.repo.commit(target_trunk)
+    #                     target_commit = self.repo.repo.commit(target_trunk)
     #                     if commit.hexsha == target_commit.hexsha:
     #                         # already at tip, can delete
     #                         pass
-    #                     elif commit in self.lg.repo.iter_commits(
+    #                     elif commit in self.repo.repo.iter_commits(
     #                         f"{bname}..{target_trunk}"
     #                     ):
     #                         # commit is ancestor of target trunk, can delete

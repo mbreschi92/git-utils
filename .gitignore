@@ -1,3 +1,2 @@
-.gitflow/
 *.egg-info/
 */__pycache__/

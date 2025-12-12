@@ -88,9 +88,9 @@ def finish(
     tree_manager.lg.checkout(target_branch)
     tree_manager.lg.pull(target_branch)
 
-    # Merge source into target. LocalGit.merge raises MergeConflictError if conflict.
+    # Merge source into target. GitRepository.merge raises MergeConflictError if conflict.
     try:
-        # LocalGit.merge signature: merge(source, target, strategy=None, no_ff=True)
+        # GitRepository.merge signature: merge(source, target, strategy=None, no_ff=True)
         tree_manager.lg.merge(branch, target_branch, strategy=resolve, no_ff=not ff)
         typer.echo(f"Merged {branch} → {target_branch}")
     except Exception as e:

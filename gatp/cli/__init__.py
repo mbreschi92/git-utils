@@ -262,7 +262,7 @@ def switch(branch: str = typer.Argument(..., help="Branch name to switch to")):
 #         typer.echo("Not initialized. Run `tool config setup` first.")
 #         raise typer.Exit()
 
-#     t = TrunkSettings(name=name, allow_push=allow_push, require_pr=require_pr)
+#     t = Trunk(name=name, allow_push=allow_push, require_pr=require_pr)
 #     fm.store.add_trunk(t)
 #     typer.echo(f"Added trunk '{name}' (push={allow_push}, pr={require_pr}).")
 
@@ -285,7 +285,7 @@ def switch(branch: str = typer.Argument(..., help="Branch name to switch to")):
 #     if not fm.store.get_trunk(target):
 #         raise typer.Exit(f"Target trunk '{target}' does not exist.")
 
-#     f = FlowSettings(prefix=prefix, parent=parent, target=target)
+#     f = Flow(prefix=prefix, parent=parent, target=target)
 #     fm.store.add_flow(flow_name, f)
 
 #     typer.echo(
